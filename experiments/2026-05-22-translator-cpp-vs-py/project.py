@@ -1,15 +1,15 @@
 """Shared helpers for the translator-port experiment series.
 
 Modelled after Scorpion's `experiments/.../project.py` pattern (see
-https://github.com/jendrikseipp/scorpion/tree/scorpion/experiments) but
-scoped to this repo: we only ship Lab integration for the bundled
-`misc/tests/benchmarks/` suite and the two translator front-ends (the
-C++ port at `src/translate-cpp/build/translate` and the Python
-translator at `src/translate`).
+https://github.com/jendrikseipp/scorpion/tree/scorpion/experiments).
+Scoped to this repo:
 
-Heavier helpers (Slurm environments, scatter plots, latex reports) can
-be lifted from Scorpion's project.py once we move beyond the local
-suite; keep this file small until then.
+  - REMOTE detection via lab.environments (Basel Slurm + Linköping
+    Tetralith mirrored from Scorpion);
+  - LOCAL_SUITE auto-discovered from misc/tests/benchmarks/;
+  - SUITE_SATISFICING/SUITE_OPTIMAL_STRIPS verbatim from Scorpion so
+    a remote run on downward-benchmarks gets the same suite layout
+    every Fast Downward experiment uses.
 """
 from __future__ import annotations
 
@@ -23,77 +23,152 @@ if not hasattr(collections, "Iterable"):
 import os
 from pathlib import Path
 
-from downward.experiment import FastDownwardExperiment
-from downward.reports.absolute import AbsoluteReport  # noqa: F401  (re-export)
-from lab.environments import LocalEnvironment  # noqa: F401  (re-export)
-from lab.experiment import ARGPARSER  # noqa: F401  (re-export)
+from downward.experiment import FastDownwardExperiment  # noqa: F401 (re-export)
+from downward.reports.absolute import AbsoluteReport  # noqa: F401 (re-export)
+from downward.reports.compare import ComparativeReport  # noqa: F401 (re-export)
+from lab.environments import (
+    BaselSlurmEnvironment,
+    LocalEnvironment,
+)
+try:
+    # Scorpion's project.py also handles Linköping's Tetralith cluster.
+    # The class is not bundled with the lab 4.2 PyPI build, so ship a
+    # stub if it's missing — keeps the cluster code path importable
+    # locally; users on real Tetralith hardware install Scorpion's lab
+    # fork instead.
+    from lab.environments import TetralithEnvironment  # type: ignore
+except ImportError:
+    class TetralithEnvironment(BaselSlurmEnvironment):  # type: ignore
+        """Stub: lab 4.2 PyPI doesn't include this class. Mirrors the
+        name from Scorpion's lab fork so cluster code paths stay
+        importable locally."""
+from lab.experiment import ARGPARSER  # noqa: F401 (re-export)
 from lab.reports import Attribute, geometric_mean
 
 
 # Project layout.
 DIR = Path(__file__).resolve().parent
-REPO = DIR.parent.parent          # downward-new-translator/
-BENCHMARKS_DIR = REPO / "misc" / "tests" / "benchmarks"
+
+
+def get_repo_base() -> Path:
+    """Walk up from DIR until we find a `.git` entry.
+
+    Mirrors Scorpion's `project.get_repo_base()`.
+    """
+    here = DIR
+    for parent in [here, *here.parents]:
+        if (parent / ".git").exists():
+            return parent
+    raise SystemExit(f"Could not find a .git directory above {DIR}")
+
+
+REPO = get_repo_base()
+LOCAL_BENCHMARKS_DIR = REPO / "misc" / "tests" / "benchmarks"
 FAST_DOWNWARD = REPO / "fast-downward.py"
 CPP_TRANSLATE = REPO / "src" / "translate-cpp" / "build" / "translate"
 
-# The 10 instances currently bundled (kept here so any new instance the
-# user adds shows up automatically via the directory listing below).
-LOCAL_SUITE = sorted(
-    f"{d.name}:{p.name}"
-    for d in BENCHMARKS_DIR.iterdir() if d.is_dir()
-    for p in d.iterdir()
-    if p.suffix == ".pddl" and "domain" not in p.name
+
+# Cover both the Basel and Linköping clusters for simplicity. Scorpion's
+# project.py uses `<Env>.is_present()` for this; that staticmethod is
+# absent from lab 4.2's PyPI release, so fall back to standard Slurm
+# environment-variable detection (the same vars sbatch always sets).
+REMOTE = (
+    "SLURM_JOB_ID" in os.environ
+    or "SLURM_CLUSTER_NAME" in os.environ
 )
 
-# Lab-recognised translator stats are emitted by both translators
-# (Python emits them directly, my C++ port emits the same `Translator
-# variables: N` etc.). These attributes line up with what the bundled
-# downward.scripts.translator_parser sets.
-TRANSLATOR_ATTRIBUTES = [
-    Attribute("translator_time_done", functions=geometric_mean, digits=2),
-    "translator_variables",
-    "translator_derived_variables",
-    "translator_facts",
-    "translator_goal_facts",
-    "translator_mutex_groups",
-    "translator_total_mutex_groups_size",
-    "translator_operators",
-    "translator_axioms",
-    "translator_task_size",
-    "translator_peak_memory",
+
+# The bundled-suite list, auto-discovered from disk.
+def _discover_local_suite():
+    if not LOCAL_BENCHMARKS_DIR.exists():
+        return []
+    out = []
+    for domain_dir in sorted(LOCAL_BENCHMARKS_DIR.iterdir()):
+        if not domain_dir.is_dir():
+            continue
+        for problem in sorted(domain_dir.iterdir()):
+            if problem.suffix != ".pddl":
+                continue
+            if "domain" in problem.name:
+                continue
+            out.append(f"{domain_dir.name}:{problem.name}")
+    return out
+
+
+LOCAL_SUITE = _discover_local_suite()
+
+
+# Generated by `./suites.py satisficing` in aibasel/downward-benchmarks.
+# Kept verbatim from Scorpion's project.py.
+# fmt: off
+SUITE_SATISFICING = [
+    "agricola-sat18-strips", "airport", "assembly", "barman-sat11-strips",
+    "barman-sat14-strips", "blocks", "caldera-sat18-adl",
+    "caldera-split-sat18-adl", "cavediving-14-adl", "childsnack-sat14-strips",
+    "citycar-sat14-adl", "data-network-sat18-strips", "depot", "driverlog",
+    "elevators-sat08-strips", "elevators-sat11-strips", "flashfill-sat18-adl",
+    "floortile-sat11-strips", "floortile-sat14-strips", "freecell",
+    "ged-sat14-strips", "grid", "gripper", "hiking-sat14-strips",
+    "logistics00", "logistics98", "maintenance-sat14-adl", "miconic",
+    "miconic-fulladl", "miconic-simpleadl", "movie", "mprime", "mystery",
+    "nomystery-sat11-strips", "nurikabe-sat18-adl", "openstacks",
+    "openstacks-sat08-adl", "openstacks-sat08-strips",
+    "openstacks-sat11-strips", "openstacks-sat14-strips", "openstacks-strips",
+    "optical-telegraphs", "organic-synthesis-sat18-strips",
+    "organic-synthesis-split-sat18-strips", "parcprinter-08-strips",
+    "parcprinter-sat11-strips", "parking-sat11-strips", "parking-sat14-strips",
+    "pathways", "pegsol-08-strips", "pegsol-sat11-strips", "philosophers",
+    "pipesworld-notankage", "pipesworld-tankage", "psr-large", "psr-middle",
+    "psr-small", "rovers", "satellite", "scanalyzer-08-strips",
+    "scanalyzer-sat11-strips", "schedule", "settlers-sat18-adl",
+    "snake-sat18-strips", "sokoban-sat08-strips", "sokoban-sat11-strips",
+    "spider-sat18-strips", "storage", "termes-sat18-strips",
+    "tetris-sat14-strips", "thoughtful-sat14-strips", "tidybot-sat11-strips",
+    "tpp", "transport-sat08-strips", "transport-sat11-strips",
+    "transport-sat14-strips", "trucks", "trucks-strips",
+    "visitall-sat11-strips", "visitall-sat14-strips",
+    "woodworking-sat08-strips", "woodworking-sat11-strips", "zenotravel",
 ]
 
+SUITE_OPTIMAL_STRIPS = [
+    "agricola-opt18-strips", "airport", "barman-opt11-strips",
+    "barman-opt14-strips", "blocks", "childsnack-opt14-strips",
+    "data-network-opt18-strips", "depot", "driverlog", "elevators-opt08-strips",
+    "elevators-opt11-strips", "floortile-opt11-strips", "floortile-opt14-strips",
+    "freecell", "ged-opt14-strips", "grid", "gripper", "hiking-opt14-strips",
+    "logistics00", "logistics98", "miconic", "movie", "mprime", "mystery",
+    "nomystery-opt11-strips", "openstacks-opt08-strips", "openstacks-opt11-strips",
+    "openstacks-opt14-strips", "openstacks-strips", "organic-synthesis-opt18-strips",
+    "organic-synthesis-split-opt18-strips", "parcprinter-08-strips",
+    "parcprinter-opt11-strips", "parking-opt11-strips", "parking-opt14-strips",
+    "pathways", "pegsol-08-strips", "pegsol-opt11-strips",
+    "petri-net-alignment-opt18-strips", "pipesworld-notankage", "pipesworld-tankage",
+    "psr-small", "rovers", "satellite", "scanalyzer-08-strips",
+    "scanalyzer-opt11-strips", "snake-opt18-strips", "sokoban-opt08-strips",
+    "sokoban-opt11-strips", "spider-opt18-strips", "storage", "termes-opt18-strips",
+    "tetris-opt14-strips", "tidybot-opt11-strips", "tidybot-opt14-strips", "tpp",
+    "transport-opt08-strips", "transport-opt11-strips", "transport-opt14-strips",
+    "trucks-strips", "visitall-opt11-strips", "visitall-opt14-strips",
+    "woodworking-opt08-strips", "woodworking-opt11-strips", "zenotravel",
+]
+# fmt: on
 
-def assert_paths_exist():
-    """Fail fast if something the experiment needs is missing."""
-    missing = [
-        str(p) for p in (BENCHMARKS_DIR, FAST_DOWNWARD)
-        if not p.exists()
-    ]
+
+# Useful aggregator for Fast-Downward-style reports.
+EVALUATIONS_PER_TIME = Attribute(
+    "evaluations_per_time", min_wins=False, functions=geometric_mean, digits=1
+)
+
+
+def assert_local_paths_exist():
+    """Fail fast if a local run is missing prerequisites."""
+    missing = [str(p) for p in (LOCAL_BENCHMARKS_DIR, FAST_DOWNWARD) if not p.exists()]
     if missing:
         raise SystemExit(
-            "Missing required paths:\n  " + "\n  ".join(missing) +
-            "\nRun `cmake --build src/translate-cpp/build -j` and "
-            "ensure misc/tests/benchmarks/ is populated.")
+            "Missing required paths:\n  " + "\n  ".join(missing))
     if not CPP_TRANSLATE.exists():
         raise SystemExit(
             f"C++ translator binary not found at {CPP_TRANSLATE}.\n"
             "Build with: cmake -S src/translate-cpp -B src/translate-cpp/build "
             "-DCMAKE_BUILD_TYPE=Release && cmake --build "
             "src/translate-cpp/build -j")
-
-
-# Convenience: which translator implementation a run should use.
-# We pass these through Lab's per-run env so fast-downward.py's driver
-# picks the right binary (see driver/run_components.py).
-TRANSLATOR_ENV = {
-    "cpp": {"FD_TRANSLATE_CPP": str(CPP_TRANSLATE)},
-    "py":  {"FD_TRANSLATE_PY": "1"},
-}
-
-
-def benchmarks_env():
-    """Lab's `suites.build_suite` needs DOWNWARD_BENCHMARKS to resolve
-    relative-suite descriptors; some downstream tools also read it."""
-    return {"DOWNWARD_BENCHMARKS": str(BENCHMARKS_DIR)}
