@@ -1,24 +1,21 @@
 """Shared helpers for the translator-port experiment series.
 
-Modelled after Scorpion's `experiments/.../project.py` pattern (see
-https://github.com/jendrikseipp/scorpion/tree/scorpion/experiments).
+Modelled after Scorpion's `experiments/.../project.py` pattern
+(https://github.com/jendrikseipp/scorpion/tree/scorpion/experiments).
 Scoped to this repo:
 
-  - REMOTE detection via lab.environments (Basel Slurm + Linköping
-    Tetralith mirrored from Scorpion);
+  - REMOTE detection via the bundled `<Env>.is_present()` helpers
+    (Basel Slurm + Linköping Tetralith mirrored from Scorpion);
   - LOCAL_SUITE auto-discovered from misc/tests/benchmarks/;
   - SUITE_SATISFICING/SUITE_OPTIMAL_STRIPS verbatim from Scorpion so
     a remote run on downward-benchmarks gets the same suite layout
     every Fast Downward experiment uses.
+
+Runs are launched through `uv run`, so this module assumes the lab>=8
+deps recorded in the top-level pyproject.toml are already installed
+in the uv-managed venv.
 """
 from __future__ import annotations
-
-# Compatibility shim for `downward.reports` on Python >= 3.10:
-# lab 4.2's report base imports `collections.Iterable`, removed in 3.10.
-import collections
-import collections.abc
-if not hasattr(collections, "Iterable"):
-    collections.Iterable = collections.abc.Iterable  # type: ignore[attr-defined]
 
 import os
 from pathlib import Path
@@ -29,19 +26,8 @@ from downward.reports.compare import ComparativeReport  # noqa: F401 (re-export)
 from lab.environments import (
     BaselSlurmEnvironment,
     LocalEnvironment,
+    TetralithEnvironment,
 )
-try:
-    # Scorpion's project.py also handles Linköping's Tetralith cluster.
-    # The class is not bundled with the lab 4.2 PyPI build, so ship a
-    # stub if it's missing — keeps the cluster code path importable
-    # locally; users on real Tetralith hardware install Scorpion's lab
-    # fork instead.
-    from lab.environments import TetralithEnvironment  # type: ignore
-except ImportError:
-    class TetralithEnvironment(BaselSlurmEnvironment):  # type: ignore
-        """Stub: lab 4.2 PyPI doesn't include this class. Mirrors the
-        name from Scorpion's lab fork so cluster code paths stay
-        importable locally."""
 from lab.experiment import ARGPARSER  # noqa: F401 (re-export)
 from lab.reports import Attribute, geometric_mean
 
@@ -68,17 +54,16 @@ FAST_DOWNWARD = REPO / "fast-downward.py"
 CPP_TRANSLATE = REPO / "src" / "translate-cpp" / "build" / "translate"
 
 
-# Cover both the Basel and Linköping clusters for simplicity. Scorpion's
-# project.py uses `<Env>.is_present()` for this; that staticmethod is
-# absent from lab 4.2's PyPI release, so fall back to standard Slurm
-# environment-variable detection (the same vars sbatch always sets).
-REMOTE = (
-    "SLURM_JOB_ID" in os.environ
-    or "SLURM_CLUSTER_NAME" in os.environ
-)
+# Cover both the Basel and Linköping clusters for simplicity (same trick
+# Scorpion uses in its project.py).
+REMOTE = BaselSlurmEnvironment.is_present() or TetralithEnvironment.is_present()
 
 
-# The bundled-suite list, auto-discovered from disk.
+# The bundled-suite list, auto-discovered from disk. Used in places
+# where we want to run against everything checked in under
+# misc/tests/benchmarks/ (e.g., full-coverage validation runs); the
+# default local SUITE in 01-full-search.py is a 2-instance smoke set
+# to keep an interactive run snappy.
 def _discover_local_suite():
     if not LOCAL_BENCHMARKS_DIR.exists():
         return []

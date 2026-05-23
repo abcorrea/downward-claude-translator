@@ -6,39 +6,47 @@ Structure mirrors Scorpion's
 
   - SUITE depends on whether we're running on a known compute cluster
     (REMOTE) or locally. Remote: pull the canonical SUITE_SATISFICING
-    from `project.py` and resolve via $DOWNWARD_BENCHMARKS. Local: use
-    the bundled mini-suite under `misc/tests/benchmarks/`.
-  - ENV is chosen the same way (TetralithEnvironment vs LocalEnvironment).
-  - Two "algorithms" — both invoke the in-tree fast-downward.py; they
-    differ only in `--translator cpp` vs `--translator py`, a driver
-    flag the port added to `driver/arguments.py`.
+    from `project.py` and resolve via $DOWNWARD_BENCHMARKS. Local:
+    a 2-instance smoke suite (gripper, miconic).
+  - ENV is chosen the same way: TetralithEnvironment vs LocalEnvironment.
+  - One git revision (HEAD) is cached and two algorithms are built on
+    top -- they differ only in `--translator cpp` vs `--translator py`,
+    a driver flag added by the port to `driver/arguments.py`.
 
-Implementation note: lab 4.2's `FastDownwardExperiment.add_algorithm`
-uses Mercurial-backed `CachedRevision`, which doesn't fit this repo
-(git). We bypass it by subclassing `Run` and pointing it at the
-working tree's `fast-downward.py`; the FastDownwardExperiment is still
-useful for its bundled parsers and the build/start/parse/fetch step
-scaffold.
+Always invoke this script through `uv run` so the Lab 8 deps in
+pyproject.toml are picked up correctly:
+
+    uv run --project ../../  experiments/2026-05-22-translator-cpp-vs-py/01-full-search.py --all
 """
 import os
-from pathlib import Path
 
+import custom_parser
 import project
 
 from downward import suites
-from downward.experiment import FastDownwardExperiment
-from lab.experiment import Experiment, Run
+from downward.experiment import (
+    CachedFastDownwardRevision,
+    FastDownwardAlgorithm,
+    FastDownwardExperiment,
+    FastDownwardRun,
+)
+from lab.experiment import Experiment
 
 
 # --- Repository + benchmarks --------------------------------------------------
-#
+
+REPO = str(project.REPO)
+
 # Local: tiny smoke-test suite (matches Scorpion's
-# `experiments/.../*-A-preprocessor-optimizations.py` shape, which uses
-# 3 instances locally and the full satisficing suite remotely).
+# `experiments/.../*-preprocessor-optimizations.py` shape).
 SUITE = [
     "gripper:prob01.pddl",
     "miconic:s1-0.pddl",
 ]
+REVISION_CACHE = (
+    os.environ.get("DOWNWARD_REVISION_CACHE")
+    or project.DIR / "data" / "revision-cache"
+)
 
 if project.REMOTE:
     BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
@@ -57,92 +65,67 @@ else:
 
 # --- Algorithms & configurations ---------------------------------------------
 
-TIME_LIMIT_S = 120
-MEM_LIMIT_MB = 2048
-
-# Driver flags shared by every run.
-DRIVER_OPTIONS_COMMON = [
-    "--validate",
-    "--overall-time-limit", f"{TIME_LIMIT_S}s",
-    "--overall-memory-limit", f"{MEM_LIMIT_MB}M",
-]
-
-# Search configs. lazy_greedy + FF is fast enough for both the local
-# mini-suite and the satisficing suite.
+# A satisficing config: lazy greedy with FF + preferred operators.
+# Fast enough for both the local smoke suite and the satisficing suite.
 CONFIGS = [
     ("lazy-ff", ["--search", "lazy_greedy([ff()], preferred=[ff()])"]),
 ]
 
-TRANSLATOR_VARIANTS = ["cpp", "py"]
-
-
-class TranslateAndSearchRun(Run):
-    """Invoke `fast-downward.py --translator <X> [config] <dom> <prob>`.
-
-    The driver flag --translator was added to driver/arguments.py so we
-    can switch translator backends without env-var gymnastics.
-    """
-
-    def __init__(self, exp, algo_name, translator, config_opts, task):
-        super().__init__(exp)
-        self.algo_name = algo_name
-        self.task = task
-        self.set_property("id", [algo_name, task.domain,
-                                 Path(task.problem_file).stem])
-        self.set_property("algorithm", algo_name)
-        self.set_property("domain", task.domain)
-        self.set_property("problem", task.problem)
-        self.set_property("translator", translator)
-        self.set_property("time_limit", TIME_LIMIT_S)
-        self.set_property("memory_limit", MEM_LIMIT_MB * 1024)
-        # Make the input files visible to Lab so they show up in run dir
-        # listings (purely cosmetic; the planner reads them from their
-        # original paths below).
-        self.add_resource(
-            "domain", task.domain_file, "domain.pddl", symlink=True)
-        self.add_resource(
-            "problem", task.problem_file, "problem.pddl", symlink=True)
-        cmd = [
-            str(project.FAST_DOWNWARD),
-            "--translator", translator,
-            *DRIVER_OPTIONS_COMMON,
-            str(task.domain_file),
-            str(task.problem_file),
-            *config_opts,
-        ]
-        self.add_command(
-            "planner", cmd,
-            time_limit=TIME_LIMIT_S,
-            memory_limit=MEM_LIMIT_MB * 1024,
-        )
+# We compare the same revision against itself with the translator
+# backend swapped. The translator choice is a driver-level flag we
+# added in driver/arguments.py: `--translator {cpp,py}`.
+#
+# `--with-translate-cpp` makes ./build.py also build the C++ translator
+# port (src/translate-cpp/) and drop its binary at
+# builds/<config>/bin/translate-cpp. That's the path the driver looks
+# for first; Lab's CachedFastDownwardRevision cleanup keeps
+# `builds/*/bin/` so the binary survives the cache prep.
+REV = "HEAD"
+BUILD_OPTIONS = ["--with-translate-cpp"]
+DRIVER_OPTIONS_COMMON = [
+    "--validate",
+    "--overall-time-limit", "120s",
+    "--overall-memory-limit", "2G",
+]
+TRANSLATOR_VARIANTS = [
+    ("cpp", ["--translator", "cpp"]),
+    ("py",  ["--translator", "py"]),
+]
 
 
 # --- Experiment ---------------------------------------------------------------
 
-# Use the base Experiment class -- FastDownwardExperiment requires
-# `add_algorithm`, which uses lab 4.2's hg-only CachedRevision. We still
-# reference FastDownwardExperiment's class-level parser constants below.
 exp = Experiment(environment=ENV)
 
-tasks = list(suites.build_suite(BENCHMARKS_DIR, SUITE))
-for translator in TRANSLATOR_VARIANTS:
+cached_rev = CachedFastDownwardRevision(REVISION_CACHE, REPO, REV, BUILD_OPTIONS)
+cached_rev.cache()
+exp.add_resource("", cached_rev.path, cached_rev.get_relative_exp_path())
+
+for tnick, tflags in TRANSLATOR_VARIANTS:
     for cnick, cconfig in CONFIGS:
-        algo_name = f"{translator}-{cnick}"
-        for task in tasks:
-            exp.add_run(TranslateAndSearchRun(
-                exp, algo_name, translator, cconfig, task))
+        algo_name = f"{tnick}-{cnick}"
+        for task in suites.build_suite(BENCHMARKS_DIR, SUITE):
+            algo = FastDownwardAlgorithm(
+                algo_name,
+                cached_rev,
+                DRIVER_OPTIONS_COMMON + tflags,
+                cconfig,
+            )
+            exp.add_run(FastDownwardRun(exp, algo, task))
 
 # Lab's bundled parsers cover everything we care about; the custom
-# parser adds the C++-specific [phase] timer lines.
+# parser adds the C++-specific [phase] timer lines. Lab 8's add_parser
+# wants Parser *instances*, not paths to scripts (the lab-4-style
+# path-based registration was removed).
 exp.add_parser(FastDownwardExperiment.EXITCODE_PARSER)
 exp.add_parser(FastDownwardExperiment.TRANSLATOR_PARSER)
 exp.add_parser(FastDownwardExperiment.SINGLE_SEARCH_PARSER)
-exp.add_parser(str(project.DIR / "custom_parser.py"))
+exp.add_parser(custom_parser.get_parser())
 exp.add_parser(FastDownwardExperiment.PLANNER_PARSER)
 
 exp.add_step("build", exp.build)
 exp.add_step("start", exp.start_runs)
-exp.add_parse_again_step()
+exp.add_step("parse", exp.parse)
 exp.add_fetcher(name="fetch")
 
 

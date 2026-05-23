@@ -20,12 +20,16 @@ from lab.parser import Parser
 
 
 def parse_cpp_phase_timers(content, props):
-    """Capture `  [phase] X.Ys` and `    [sub.phase] X.Ys` lines."""
-    pattern = re.compile(r"^\s*\[([\w_.]+)\]\s+([0-9.eE+-]+)s")
+    """Capture `  [phase] X.Ys` and `    [sub.phase] X.Ys` lines.
+
+    Labels may contain spaces (e.g. `[pddl_to_sas total]`), which we
+    map to underscores in the attribute name.
+    """
+    pattern = re.compile(r"^\s*\[([^\]]+)\]\s+([0-9.eE+-]+)s")
     for line in content.splitlines():
         m = pattern.match(line)
         if m:
-            phase = m.group(1).replace(".", "_")
+            phase = re.sub(r"[ .]+", "_", m.group(1).strip())
             try:
                 props[f"cpp_phase_{phase}_time"] = float(m.group(2))
             except ValueError:
