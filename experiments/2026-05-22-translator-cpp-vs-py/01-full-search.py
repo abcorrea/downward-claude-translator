@@ -65,10 +65,14 @@ else:
 
 # --- Algorithms & configurations ---------------------------------------------
 
-# A satisficing config: lazy greedy with FF + preferred operators.
-# Fast enough for both the local smoke suite and the satisficing suite.
+# Satisficing config: LAMA-first via the bundled `--alias` mechanism
+# in fast-downward.py. The alias expands to a full LAMA-first
+# search/heuristic stack (lazy_greedy + FF + landmark counting +
+# preferred ops), so the search itself goes through driver options
+# rather than component options. Each tuple is
+# (nick, extra driver options, component options).
 CONFIGS = [
-    ("lazy-ff", ["--search", "lazy_greedy([ff()], preferred=[ff()])"]),
+    ("lama-first", ["--alias", "lama-first"], []),
 ]
 
 # We compare the same revision against itself with the translator
@@ -102,14 +106,14 @@ cached_rev.cache()
 exp.add_resource("", cached_rev.path, cached_rev.get_relative_exp_path())
 
 for tnick, tflags in TRANSLATOR_VARIANTS:
-    for cnick, cconfig in CONFIGS:
+    for cnick, cdriver, ccomponent in CONFIGS:
         algo_name = f"{tnick}-{cnick}"
         for task in suites.build_suite(BENCHMARKS_DIR, SUITE):
             algo = FastDownwardAlgorithm(
                 algo_name,
                 cached_rev,
-                DRIVER_OPTIONS_COMMON + tflags,
-                cconfig,
+                DRIVER_OPTIONS_COMMON + tflags + cdriver,
+                ccomponent,
             )
             exp.add_run(FastDownwardRun(exp, algo, task))
 
@@ -164,7 +168,7 @@ add_report("absolute")
 add_report(
     "compare-cpp-vs-py",
     cls=project.ComparativeReport,
-    algorithm_pairs=[("py-lazy-ff", "cpp-lazy-ff")],
+    algorithm_pairs=[("py-lama-first", "cpp-lama-first")],
 )
 
 exp.run_steps()
