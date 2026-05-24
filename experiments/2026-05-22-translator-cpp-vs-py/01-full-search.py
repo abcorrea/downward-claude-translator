@@ -32,6 +32,8 @@ from downward.experiment import (
 )
 from lab.experiment import Experiment
 
+from modern_lab_report import ModernAbsoluteReport
+
 
 # --- Repository + benchmarks --------------------------------------------------
 
@@ -158,7 +160,7 @@ ATTRIBUTES = [
 
 
 def add_report(name, **kwargs):
-    cls = kwargs.pop("cls", project.AbsoluteReport)
+    cls = kwargs.pop("cls", ModernAbsoluteReport)
     report = cls(attributes=ATTRIBUTES, **kwargs)
     outfile = os.path.join(exp.eval_dir, f"{name}.html")
     exp.add_report(report, outfile=outfile, name=name)
