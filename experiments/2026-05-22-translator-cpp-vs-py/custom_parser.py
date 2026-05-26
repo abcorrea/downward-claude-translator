@@ -69,10 +69,18 @@ def get_parser():
     p.add_function(parse_cpp_phase_timers)
     p.add_function(parse_translator_kind)
     p.add_function(parse_driver_log_exit_code, file="driver.log")
-    # Emit a final "translator_total_time" pulled from either the C++
-    # "Total time: X.Ys" footer or the Python "Done! [X.Ys CPU,...]" footer.
+    # Emit a final "translator_total_time" pulled from each translator's
+    # footer.
+    #
+    # The C++ translator's footer is `Done! 0.123456s` (no CPU/wall
+    # decoration). We anchor the pattern with the `Done! ` prefix to
+    # avoid colliding with Fast Downward's planner-side
+    # `[t=Xs, ...] Total time: Ys` summary -- earlier this regex
+    # matched the planner Total-time line and falsely attributed
+    # ~hundreds of seconds of search to the C++ translator on the
+    # cluster.
     p.add_pattern("translator_total_time_cpp",
-                  r"Total time:\s+([0-9.eE+-]+)s", type=float)
+                  r"^Done! ([0-9.eE+-]+)s$", type=float, flags="M")
     p.add_pattern("translator_total_time_py",
                   r"Done! \[([0-9.eE+-]+)s CPU,", type=float)
     return p
