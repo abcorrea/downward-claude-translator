@@ -86,7 +86,13 @@ CONFIGS = [
 # builds/<config>/bin/translate-cpp. That's the path the driver looks
 # for first; Lab's CachedFastDownwardRevision cleanup keeps
 # `builds/*/bin/` so the binary survives the cache prep.
-REV = "HEAD"
+#
+# Pin REV explicitly to the commit we want measured so re-running the
+# script from a fresher checkout still rebuilds the cache against the
+# exact same code. Update this SHA when bringing new translator-port
+# work into the next cluster run. Current pin is
+# `45d933e59 -- parser O(N*P) fix on top of MaxDAG + SIGXCPU port`.
+REV = "45d933e59e1392a4fb3cce98cbbc80f93f99ab43"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
