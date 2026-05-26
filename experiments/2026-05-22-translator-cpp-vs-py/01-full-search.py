@@ -56,7 +56,7 @@ if project.REMOTE:
         partition="infai_2",
         memory_per_cpu="6G",
         cpus_per_task=2,
-        setup=BaselSlurmEnvironment.DEFAULT_SETUP,
+        setup=project.BaselSlurmEnvironment.DEFAULT_SETUP,
     )
 else:
     project.assert_local_paths_exist()
