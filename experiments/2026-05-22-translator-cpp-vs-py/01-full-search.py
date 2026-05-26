@@ -104,6 +104,23 @@ TRANSLATOR_VARIANTS = [
     ("py",  ["--translator", "py"]),
 ]
 
+# H2 invariant synthesis is the dominant source of cpp-vs-py SAS+
+# nondeterminism: both translators run a randomized greedy refinement
+# and pick different (but equally valid) mutex groupings depending on
+# the action-shuffle RNG. `--invariant-generation-max-candidates 0`
+# disables it; that gives us a control arm with no H2 RNG noise so we
+# can tell whether the residual cpp/py coverage gap is really
+# H2-driven or whether something else is at play.
+#
+# `--translate-options ...` is a separator inside the
+# fast-downward.py command line that switches subsequent options to
+# the translate component, so the flag goes in component_options.
+H2_VARIANTS = [
+    ("h2",    []),
+    ("no-h2", ["--translate-options",
+               "--invariant-generation-max-candidates", "0"]),
+]
+
 
 # --- Experiment ---------------------------------------------------------------
 
@@ -114,16 +131,19 @@ cached_rev.cache()
 exp.add_resource("", cached_rev.path, cached_rev.get_relative_exp_path())
 
 for tnick, tflags in TRANSLATOR_VARIANTS:
-    for cnick, cdriver, ccomponent in CONFIGS:
-        algo_name = f"{tnick}-{cnick}"
-        for task in suites.build_suite(BENCHMARKS_DIR, SUITE):
-            algo = FastDownwardAlgorithm(
-                algo_name,
-                cached_rev,
-                DRIVER_OPTIONS_COMMON + tflags + cdriver,
-                ccomponent,
-            )
-            exp.add_run(FastDownwardRun(exp, algo, task))
+    for hnick, hflags in H2_VARIANTS:
+        for cnick, cdriver, ccomponent in CONFIGS:
+            # Algorithm names: cpp-h2-lama-first, cpp-no-h2-lama-first,
+            # py-h2-lama-first, py-no-h2-lama-first.
+            algo_name = f"{tnick}-{hnick}-{cnick}"
+            for task in suites.build_suite(BENCHMARKS_DIR, SUITE):
+                algo = FastDownwardAlgorithm(
+                    algo_name,
+                    cached_rev,
+                    DRIVER_OPTIONS_COMMON + tflags + cdriver,
+                    ccomponent + hflags,
+                )
+                exp.add_run(FastDownwardRun(exp, algo, task))
 
 # Lab's bundled parsers cover everything we care about; the custom
 # parser adds the C++-specific [phase] timer lines. Lab 8's add_parser
@@ -173,10 +193,31 @@ def add_report(name, **kwargs):
 
 
 add_report("absolute")
+# Core comparison with H2 on (the default LAMA pipeline).
 add_report(
-    "compare-cpp-vs-py",
+    "compare-cpp-vs-py-h2",
     cls=project.ComparativeReport,
-    algorithm_pairs=[("py-lama-first", "cpp-lama-first")],
+    algorithm_pairs=[("py-h2-lama-first", "cpp-h2-lama-first")],
+)
+# Control: with H2 disabled the only translator-side nondeterminism
+# left is choose_groups / MaxDAG tie-breaking. If cpp and py line up
+# closely here, we've confirmed the residual coverage gap is dominated
+# by H2 RNG.
+add_report(
+    "compare-cpp-vs-py-no-h2",
+    cls=project.ComparativeReport,
+    algorithm_pairs=[("py-no-h2-lama-first", "cpp-no-h2-lama-first")],
+)
+# How much does H2 actually help LAMA on each translator?
+add_report(
+    "compare-h2-vs-no-h2-cpp",
+    cls=project.ComparativeReport,
+    algorithm_pairs=[("cpp-no-h2-lama-first", "cpp-h2-lama-first")],
+)
+add_report(
+    "compare-h2-vs-no-h2-py",
+    cls=project.ComparativeReport,
+    algorithm_pairs=[("py-no-h2-lama-first", "py-h2-lama-first")],
 )
 
 exp.run_steps()
