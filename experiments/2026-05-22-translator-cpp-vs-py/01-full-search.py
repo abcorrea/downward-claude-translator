@@ -53,11 +53,11 @@ REVISION_CACHE = (
 if project.REMOTE:
     BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
     SUITE = project.SUITE_SATISFICING
-    ENV = project.TetralithEnvironment(
-        memory_per_cpu="3584M",
-        # Override these in a remote checkout:
-        # email="user@example.com",
-        # extra_options="#SBATCH --account=naissXXXX-Y-ZZZ",
+    ENV = project.BaselSlurmEnvironment(
+        partition="infai_2",
+        memory_per_cpu="6G",
+        cpus_per_task=2,
+        setup=BaselSlurmEnvironment.DEFAULT_SETUP,
     )
 else:
     project.assert_local_paths_exist()
@@ -90,8 +90,8 @@ REV = "HEAD"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
-    "--overall-time-limit", "120s",
-    "--overall-memory-limit", "2G",
+    "--overall-time-limit", "300s",
+    "--overall-memory-limit", "8G",
 ]
 TRANSLATOR_VARIANTS = [
     ("cpp", ["--translator", "cpp"]),
