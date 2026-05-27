@@ -91,8 +91,11 @@ CONFIGS = [
 # script from a fresher checkout still rebuilds the cache against the
 # exact same code. Update this SHA when bringing new translator-port
 # work into the next cluster run. Current pin is
-# `45d933e59 -- parser O(N*P) fix on top of MaxDAG + SIGXCPU port`.
-REV = "45d933e59e1392a4fb3cce98cbbc80f93f99ab43"
+# `e47c29bc1 -- SCC nodes emitted in forward DFS visit order so
+#                MaxDAG's tie-breaking matches Python byte-for-byte
+#                (on top of the parser O(N*P) fix, MaxDAG port, and
+#                 SIGXCPU/bad_alloc signal handlers).`
+REV = "e47c29bc19c59c0c37ea33e389293ee4ff3f314b"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
