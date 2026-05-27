@@ -91,12 +91,12 @@ CONFIGS = [
 # script from a fresher checkout still rebuilds the cache against the
 # exact same code. Update this SHA when bringing new translator-port
 # work into the next cluster run. Current pin is
-# `ae52d78e5 -- match Python's pre_post/operator sort + name format,
-#                on top of the SCC forward-order fix, MaxDAG port, the
-#                parser O(N*P) fix, and SIGXCPU/bad_alloc signal
-#                handlers. Most cluster instances now produce
-#                byte-identical output to Python's translator.`
-REV = "ae52d78e568fc33f30261944d433699d6062b857"
+# `5136d035e -- choose_groups picks last-of-tied to match py's pop
+#                direction (closes blocks-domain divergence), on top
+#                of the pre_post sort / operator sort, SCC forward-
+#                order fix, MaxDAG port, parser O(N*P), and
+#                SIGXCPU/bad_alloc signal handlers.`
+REV = "5136d035e93411b826b0f2aabc7666ab1d134cfc"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
