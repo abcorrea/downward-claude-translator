@@ -91,11 +91,12 @@ CONFIGS = [
 # script from a fresher checkout still rebuilds the cache against the
 # exact same code. Update this SHA when bringing new translator-port
 # work into the next cluster run. Current pin is
-# `e47c29bc1 -- SCC nodes emitted in forward DFS visit order so
-#                MaxDAG's tie-breaking matches Python byte-for-byte
-#                (on top of the parser O(N*P) fix, MaxDAG port, and
-#                 SIGXCPU/bad_alloc signal handlers).`
-REV = "e47c29bc19c59c0c37ea33e389293ee4ff3f314b"
+# `ae52d78e5 -- match Python's pre_post/operator sort + name format,
+#                on top of the SCC forward-order fix, MaxDAG port, the
+#                parser O(N*P) fix, and SIGXCPU/bad_alloc signal
+#                handlers. Most cluster instances now produce
+#                byte-identical output to Python's translator.`
+REV = "ae52d78e521cce17b3a5e6f3ae6fc4dc7ff9c0e5"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
