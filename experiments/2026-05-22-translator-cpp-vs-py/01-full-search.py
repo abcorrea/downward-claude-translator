@@ -96,7 +96,7 @@ CONFIGS = [
 #                parser O(N*P) fix, and SIGXCPU/bad_alloc signal
 #                handlers. Most cluster instances now produce
 #                byte-identical output to Python's translator.`
-REV = "ae52d78e521cce17b3a5e6f3ae6fc4dc7ff9c0e5"
+REV = "ae52d78e568fc33f30261944d433699d6062b857"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
