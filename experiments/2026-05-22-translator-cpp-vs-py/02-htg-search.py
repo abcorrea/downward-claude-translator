@@ -18,7 +18,6 @@ Invoke through `uv run` so the Lab 8 deps in pyproject.toml resolve:
 """
 import os
 
-import custom_parser
 import project
 
 from downward import suites
@@ -153,10 +152,12 @@ for tnick, tflags in TRANSLATOR_VARIANTS:
                 )
                 exp.add_run(FastDownwardRun(exp, algo, task))
 
+# Stock parsers only: the C++ port prints the Python translator's
+# phase-log format, so TRANSLATOR_PARSER captures translator_time_<phase>
+# and translator_peak_memory for both backends -- no custom parser.
 exp.add_parser(FastDownwardExperiment.EXITCODE_PARSER)
 exp.add_parser(FastDownwardExperiment.TRANSLATOR_PARSER)
 exp.add_parser(FastDownwardExperiment.SINGLE_SEARCH_PARSER)
-exp.add_parser(custom_parser.get_parser())
 exp.add_parser(FastDownwardExperiment.PLANNER_PARSER)
 
 exp.add_step("build", exp.build)
@@ -170,18 +171,26 @@ exp.add_fetcher(name="fetch")
 ATTRIBUTES = [
     "error", "coverage", "planner_exit_code",
     "search_start_time", "search_start_memory", "total_time",
-    "translator_total_time_cpp", "translator_total_time_py",
-    "translator_kind",
+    # Translator timings + peak memory from the stock TRANSLATOR_PARSER,
+    # populated for both backends (the C++ port prints the Python
+    # translator's phase-log format). translator_time_done is the total.
+    "translator_time_done",
+    "translator_time_parsing",
+    "translator_time_normalizing_task",
+    "translator_time_generating_datalog_program",
+    "translator_time_normalizing_datalog_program",
+    "translator_time_computing_model",
+    "translator_time_completing_instantiation",
+    "translator_time_computing_fact_groups",
+    "translator_time_processing_axioms",
+    "translator_time_translating_task",
+    "translator_time_detecting_unreachable_propositions",
+    "translator_time_reordering_and_filtering_variables",
+    "translator_time_writing_output",
+    "translator_peak_memory",
     "translator_variables", "translator_facts", "translator_mutex_groups",
     "translator_operators", "translator_axioms", "translator_task_size",
-    "translator_peak_memory",
     "expansions", "generated", "evaluations", "memory", "cost", "plan_length",
-    "cpp_phase_compute_model_time",
-    "cpp_phase_instantiate_time",
-    "cpp_phase_translate_strips_operators_time",
-    "cpp_phase_simplify_time",
-    "cpp_phase_write_time",
-    "cpp_phase_pddl_to_sas_total_time",
 ]
 
 
