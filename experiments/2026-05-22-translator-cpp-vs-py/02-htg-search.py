@@ -92,7 +92,7 @@ if project.REMOTE:
         partition="infai_2",
         memory_per_cpu="6G",
         cpus_per_task=2,
-        setup=BaselSlurmEnvironment.DEFAULT_SETUP,
+        setup=project.BaselSlurmEnvironment.DEFAULT_SETUP,
     )
 else:
     # Local smoke: one organic-synthesis-alkene task only.
