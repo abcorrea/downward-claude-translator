@@ -96,7 +96,7 @@ CONFIGS = [
 #                of choose_groups last-of-tied, pre_post/operator
 #                sort, SCC forward-order, MaxDAG, parser O(N*P),
 #                and SIGXCPU/bad_alloc signal handlers.`
-REV = "542223da77ecd463b4c9d2157e964fb4c8fa6c2a"
+REV = "20a05d76f30205f27b5c28c553b28f5bbb5d5778"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
