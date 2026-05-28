@@ -109,11 +109,14 @@ CONFIGS = [
 
 # Pin REV to the latest translator-port commit on this branch so the
 # cluster rebuilds the cache against the exact code being measured.
-# Current pin: 542223da7 -- index-based compute_model dedup set (halves
-# peak memory, recovers rovers-large-simple OOMs), on top of
-# choose_groups last-of-tied, pre_post/operator sort, SCC forward-order,
-# MaxDAG, parser O(N*P), and SIGXCPU/bad_alloc signal handlers.
-REV = "20a05d76f30205f27b5c28c553b28f5bbb5d5778"
+# Current pin: 8cddd784e -- C++ translator prints the Python phase-log
+# format so the stock TRANSLATOR_PARSER captures translator_time_* /
+# translator_peak_memory for both backends, on top of argument interning
+# (peak RSS ~-56% on rovers), index-based compute_model dedup +
+# join/product indexes, choose_groups last-of-tied, pre_post/operator
+# sort, SCC forward-order, MaxDAG, parser O(N*P), and SIGXCPU/bad_alloc
+# signal handlers.
+REV = "8cddd784e9171880f41b0f5a1e4d5f2535e36e59"
 BUILD_OPTIONS = ["--with-translate-cpp"]
 DRIVER_OPTIONS_COMMON = [
     "--validate",
