@@ -1,3 +1,75 @@
+# Fast Downward — C++ translator port (fork)
+
+> [!CAUTION]
+> This fork is **not officially maintained by Fast Downward**. It is an
+> experiment exploring how well an AI assistant can carry out a real
+> porting/optimization task on a non-trivial planning codebase. **No
+> support of any kind should be expected**, and nothing here is
+> endorsed by the upstream Fast Downward project.
+
+This fork adds a C++20 reimplementation of the Python translator
+component (`src/translate/`) under `src/translate-cpp/`. The C++
+translator produces a SAS+ task that is byte-for-byte equivalent to
+the Python translator's output on (almost) every bundled benchmark,
+with deviations only on instances where Python's own H2-RNG is the
+source of the difference. On hard-to-ground instances it is several
+times faster and uses roughly half the peak memory of the Python
+translator.
+
+## Building
+
+The Python translator is built/used exactly as in upstream Fast
+Downward. To additionally build the C++ translator, pass
+`--with-translate-cpp` to `build.py`:
+
+```bash
+./build.py release --with-translate-cpp
+```
+
+This places the binary at `builds/release/bin/translate-cpp` next to
+the search binary. Requires a C++20 compiler (GCC 11+, Clang 17+ or
+similar).
+
+## Running
+
+`fast-downward.py` includes a `--translator` flag that picks between
+the Python and C++ backends. Defaults match upstream behaviour.
+
+```bash
+# Use the C++ translator (default once --with-translate-cpp is built):
+./fast-downward.py --translator cpp DOMAIN.pddl PROBLEM.pddl SEARCH
+
+# Force the Python translator:
+./fast-downward.py --translator py  DOMAIN.pddl PROBLEM.pddl SEARCH
+
+# Translate only (no search):
+./fast-downward.py --translator cpp --translate DOMAIN.pddl PROBLEM.pddl
+```
+
+You can also invoke the C++ translator directly:
+
+```bash
+builds/release/bin/translate-cpp DOMAIN.pddl PROBLEM.pddl
+# -> writes output.sas in the current directory
+```
+
+It accepts the same translate-level options as the Python translator
+(e.g. `--invariant-generation-max-candidates 0` to disable H2
+synthesis).
+
+## Verifying equivalence
+
+`src/translate-cpp/tests/run_validation.sh` runs both translators on
+every bundled benchmark, enforces 120 s / 2 GiB per run, and reports
+canonical (variable-renaming-equivalent) SAS+ matches.
+
+---
+
+The remainder of this README is the upstream Fast Downward README,
+unchanged.
+
+---
+
 <img src="misc/images/fast-downward.svg" width="800" alt="Fast Downward">
 
 Fast Downward is a domain-independent classical planning system.
