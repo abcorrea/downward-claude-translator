@@ -1,0 +1,5 @@
+The goal is to speed up the C++ translator as much as possible while preserving output correctness. The first step is to create a useful benchmark script. Check https://abcorrea.github.io/assets/tmp/claude-translator-htg.html and download one task
+from each domain family that is as close as possible to using 20 seconds for translator_time_done. Take the tasks from https://github.com/abcorrea/htg-domains. Then do the same for https://abcorrea.github.io/assets/tmp/claude-translator-ipc.html and https://github.com/aibasel/downward-benchmarks. If a domain only has tasks that use 10s or less, ignore the domain. 
+Put the tasks into misc/tests/benchmarks. Then translate all of these tasks once and save the reference generated *.sas file in the same directory, but gitignore it.
+Create a benchmark script that runs the C++ translator for all these tasks directly, without going through the driver. It should print the total CPU time taken.
+Then start the autoresearch loop.
