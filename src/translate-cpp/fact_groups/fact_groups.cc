@@ -29,14 +29,14 @@ std::vector<ConditionPtr> expand_group(
         const auto &atom = static_cast<const Atom &>(*fact);
         int pos = find_placeholder(atom);
         if (pos < 0) {
-            if (reachable_facts.count(fact)) result.push_back(fact);
+            if (reachable_facts.contains(fact)) result.push_back(fact);
         } else {
             for (const auto &obj : task.objects) {
                 auto new_args = atom.args;
                 new_args[pos] = obj.name;
                 auto candidate = std::make_shared<const Atom>(
                     atom.predicate, std::move(new_args));
-                if (reachable_facts.count(candidate))
+                if (reachable_facts.contains(candidate))
                     result.push_back(candidate);
             }
         }
@@ -113,7 +113,7 @@ std::vector<std::vector<ConditionPtr>> choose_groups(
     for (const auto &g : groups_in) {
         std::vector<ConditionPtr> filtered;
         for (const auto &a : g)
-            if (!negative_in_goal.count(a)) filtered.push_back(a);
+            if (!negative_in_goal.contains(a)) filtered.push_back(a);
         groups.push_back(std::move(filtered));
     }
 

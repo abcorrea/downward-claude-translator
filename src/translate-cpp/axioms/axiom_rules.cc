@@ -54,7 +54,7 @@ struct AxiomDependencies {
                 if (!lit_cond) continue;
                 const auto &lit = static_cast<const Literal &>(*lit_cond);
                 std::string body_key = literal_atom_key(lit);
-                if (derived_variables.count(body_key)) {
+                if (derived_variables.contains(body_key)) {
                     if (lit.negated())
                         negative_dependencies[head].insert(body_key);
                     else
@@ -68,7 +68,7 @@ struct AxiomDependencies {
         const std::unordered_set<std::string> &necessary) {
         std::unordered_set<std::string> kept;
         for (const auto &v : derived_variables) {
-            if (necessary.count(v)) kept.insert(v);
+            if (necessary.contains(v)) kept.insert(v);
             else {
                 positive_dependencies.erase(v);
                 negative_dependencies.erase(v);
@@ -87,7 +87,7 @@ std::unordered_set<std::string> compute_necessary_atoms(
         if (!g) continue;
         const auto &lit = static_cast<const Literal &>(*g);
         std::string key = literal_atom_key(lit);
-        if (deps.derived_variables.count(key)) necessary.insert(key);
+        if (deps.derived_variables.contains(key)) necessary.insert(key);
     }
     for (const auto &op : operators) {
         if (!op) continue;
@@ -95,7 +95,7 @@ std::unordered_set<std::string> compute_necessary_atoms(
             if (!pre) continue;
             const auto &lit = static_cast<const Literal &>(*pre);
             std::string key = literal_atom_key(lit);
-            if (deps.derived_variables.count(key)) necessary.insert(key);
+            if (deps.derived_variables.contains(key)) necessary.insert(key);
         }
         auto walk = [&](const auto &effects) {
             for (const auto &[conds, _] : effects) {
@@ -103,7 +103,7 @@ std::unordered_set<std::string> compute_necessary_atoms(
                     if (!c) continue;
                     const auto &lit = static_cast<const Literal &>(*c);
                     std::string key = literal_atom_key(lit);
-                    if (deps.derived_variables.count(key))
+                    if (deps.derived_variables.contains(key))
                         necessary.insert(key);
                 }
             }
