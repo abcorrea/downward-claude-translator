@@ -15,3 +15,4 @@
 {"run":3,"commit":"71cc14c","metric":164.389,"samples":[165.006,164.389,164.205],"confidence":4.213,"status":"keep","description":"C++20 .contains() for find()!=end() membership (quality; byte-identical; guard neutral)","timestamp":1780741785,"segment":1}
 {"run":4,"commit":"2126410","metric":null,"samples":[],"confidence":null,"status":"keep","description":"std::erase_if + [[maybe_unused]] (C++20; byte-identical; runtime-neutral, guard skipped)","timestamp":1780742180,"segment":1}
 {"run":5,"commit":"15b29ff","metric":163.549,"samples":[163.231,163.783,163.549],"confidence":7.434,"status":"keep","description":"std::ranges algorithms x43 (C++20; byte-identical; guard neutral)","timestamp":1780743416,"segment":1}
+{"run":6,"commit":"bad2a75","metric":null,"samples":[],"confidence":null,"status":"keep","description":"std::iota for sequential fills (C++20-clean; byte-identical; neutral)","timestamp":1780743975,"segment":1}
