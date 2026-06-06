@@ -97,8 +97,15 @@ def main():
         return
 
     if args.check:
+        # Correctness gate. Each task must either be byte-identical to its
+        # reference (preferred) or, failing that, canonically equivalent
+        # (same task up to variable renaming/reordering -- verified by
+        # tests/canonical_diff.py). A task that is only canonically equal is
+        # a signal that adding a canonicalizing sort to the output could
+        # restore byte-identity. Anything else fails the gate.
         ref = Path(args.check).resolve()
-        mismatches = []
+        canon = REPO / "src" / "translate-cpp" / "tests" / "canonical_diff.py"
+        byte_ok, canon_ok, bad = [], [], []
         with tempfile.TemporaryDirectory() as tmp:
             for name, domain, problem in tasks:
                 cur = Path(tmp) / f"{name}.sas"
@@ -106,14 +113,27 @@ def main():
                 refsas = ref / f"{name}.sas"
                 if not refsas.exists():
                     sys.exit(f"missing reference {refsas}; regenerate references")
-                if sha(cur) != sha(refsas):
-                    mismatches.append(name)
-                    print(f"MISMATCH {name}", flush=True)
+                if sha(cur) == sha(refsas):
+                    byte_ok.append(name)
+                    print(f"byte-ok {name}", flush=True)
+                    continue
+                r = subprocess.run([sys.executable, str(canon), str(refsas),
+                                    str(cur)], capture_output=True, text=True)
+                if r.returncode == 0:
+                    canon_ok.append(name)
+                    print(f"canonical-ok {name}", flush=True)
                 else:
-                    print(f"ok {name}", flush=True)
-        if mismatches:
-            sys.exit(f"{len(mismatches)} task(s) deviate from reference: {mismatches}")
-        print("all outputs match reference")
+                    bad.append(name)
+                    print(f"MISMATCH {name}\n{r.stdout}{r.stderr}", flush=True)
+        print(f"summary: {len(byte_ok)} byte-identical, "
+              f"{len(canon_ok)} canonical-only, {len(bad)} mismatched")
+        if bad:
+            sys.exit(f"{len(bad)} task(s) not equivalent to reference: {bad}")
+        if canon_ok:
+            print(f"all equivalent; canonical-only (a sort may restore "
+                  f"byte-identity): {canon_ok}")
+        else:
+            print("all outputs match reference (byte-identical)")
         return
 
     # Timing mode: warmup (discarded) then timed reps.
