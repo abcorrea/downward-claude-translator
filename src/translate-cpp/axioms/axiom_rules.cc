@@ -132,7 +132,7 @@ std::vector<std::vector<std::string>> compute_sccs(
     const AxiomDependencies &deps) {
     std::vector<std::string> sorted_vars(deps.derived_variables.begin(),
                                          deps.derived_variables.end());
-    std::sort(sorted_vars.begin(), sorted_vars.end());
+    std::ranges::sort(sorted_vars);
     std::unordered_map<std::string, int> idx;
     for (std::size_t i = 0; i < sorted_vars.size(); ++i)
         idx[sorted_vars[i]] = static_cast<int>(i);
@@ -175,7 +175,7 @@ std::vector<std::shared_ptr<PropositionalAxiom>> compute_simplified_axioms(
     // Deduplicate condition entries within each axiom.
     for (auto &ax : axioms) {
         std::vector<ConditionPtr> uniq = ax->condition;
-        std::sort(uniq.begin(), uniq.end(),
+        std::ranges::sort(uniq,
                   [](const ConditionPtr &x, const ConditionPtr &y) {
                       const auto &lx = static_cast<const Literal &>(*x);
                       const auto &ly = static_cast<const Literal &>(*y);

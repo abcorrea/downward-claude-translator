@@ -78,8 +78,8 @@ bool atom_less(const ConditionPtr &a, const ConditionPtr &b) {
 
 std::vector<std::vector<ConditionPtr>> sort_groups(
     std::vector<std::vector<ConditionPtr>> groups) {
-    for (auto &g : groups) std::sort(g.begin(), g.end(), atom_less);
-    std::sort(groups.begin(), groups.end(),
+    for (auto &g : groups) std::ranges::sort(g, atom_less);
+    std::ranges::sort(groups,
               [](const std::vector<ConditionPtr> &a,
                  const std::vector<ConditionPtr> &b) {
                   return std::lexicographical_compare(
@@ -98,7 +98,7 @@ std::vector<std::vector<ConditionPtr>> collect_all_mutex_groups(
         result.push_back(g);
     }
     std::vector<ConditionPtr> remaining(uncovered.begin(), uncovered.end());
-    std::sort(remaining.begin(), remaining.end(), atom_less);
+    std::ranges::sort(remaining, atom_less);
     for (const auto &a : remaining)
         result.push_back({a});
     return result;
@@ -185,7 +185,7 @@ std::vector<std::vector<ConditionPtr>> choose_groups(
     for (const auto &a : atoms)
         if (!covered.contains(a)) uncovered.push_back(a);
     std::cout << uncovered.size() << " uncovered facts" << std::endl;
-    std::sort(uncovered.begin(), uncovered.end(), atom_less);
+    std::ranges::sort(uncovered, atom_less);
     for (const auto &a : uncovered) result.push_back({a});
     return result;
 }
