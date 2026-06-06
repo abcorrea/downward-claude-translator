@@ -54,7 +54,12 @@ DRIVER_OPTIONS = [
 FORCE_LOCAL = bool(os.environ.get("AR_FORCE_LOCAL"))
 
 if project.REMOTE and not FORCE_LOCAL:
-    BENCHMARKS_DIR = os.environ["HTG_BENCHMARKS_FLATTENED"]
+    # Flattened HTG suite on shared storage. Default to the copy under the
+    # user's projects dir so the grid build step -- which only inherits PATH
+    # -- resolves it even when HTG_BENCHMARKS_FLATTENED is not exported.
+    BENCHMARKS_DIR = os.environ.get(
+        "HTG_BENCHMARKS_FLATTENED",
+        "/home/x_jense/projects/htg-benchmarks-flattened")
     SUITE = project.SUITE_HTG
     REVISIONS = project.REVISIONS
     ENV = project.TetralithEnvironment(
