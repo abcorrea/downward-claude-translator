@@ -127,6 +127,30 @@ smarter invariant synthesis). Remaining cost is mostly INTRINSIC:
     multi-file refactor of the Condition::instantiate path. = next big swing.
   - Translating task 20%: CondMap std::set<int> + multiply-out map allocs;
     type-coupled to build_sas_operator's unordered_map<int,int>.
-NEXT: attempt the position-indexed var_mapping refactor (larger structural
-change, output-preserving). If it doesn't clear noise, we're at a sound plateau.
+## OPTION 2 (user, 2026-06-06): relax to semantic equivalence, try sort-to-byte
+Added byte-first / canonical-fallback gate (eb2baa5, canonical_diff.py).
+Key boundary learned: canonical_diff accepts variable renaming + reordering but
+STILL requires identical mutexes/variables/operators -> it does NOT permit
+changing the invariant set or variable set. And the output is deterministic
+given the fixed RNG seed + set-based logic, so internal reorderings stay
+byte-identical (the existing pre_post/operator sorts canonicalize).
+- DISCARD (run 10): unordered_map for the order-neutral translate-phase effects
+  maps. Output stayed BYTE-identical (sorts canonicalize, as predicted) but it
+  was measurably WORSE (264.30 vs 259.73, conf 3.4x): for tiny per-operator
+  maps, std::map's small RB-tree beats unordered_map's hash+bucket alloc.
+
+## FIRM PLATEAU at 259.73s (-19.6%) -- evidence across the whole space
+- Allocation eliminations in hot loops: captured (exp1/3/4/6, all KEEP).
+- SSO-short string ops (model keys, predicate hash): proven cheap (exp2/7 noise).
+- Invariant-solver micro-structure: no effect (exp8 neutral).
+- Ordered->unordered containers: WORSE for the small maps involved (exp10).
+- Variable order (6%): faithful, search-sensitive port; order must not change.
+- Detecting unreachable (5%): already optimized (sorted-vec + binary search).
+Remaining cost is INTRINSIC/algorithmic (Datalog join work; ADL effect
+enumeration; invariant constraint-solving) and is exactly what the equivalence
+constraint protects -- changing it changes the produced task. To go further
+needs EITHER a genuinely different translation (different mutexes/vars; fails
+canonical_diff; needs plan-level verification + accepts different/poorer output)
+OR a deep algorithmic rewrite preserving the exact same task (very high effort,
+uncertain). Recommend accepting -19.6% or an explicit decision on the above.
 - 
