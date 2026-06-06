@@ -164,7 +164,7 @@ std::vector<std::vector<ConditionPtr>> choose_groups(
         std::vector<ConditionPtr> chosen;
         chosen.reserve(best_size);
         for (const auto &a : groups[best]) {
-            if (covered.find(a) == covered.end()) chosen.push_back(a);
+            if (!covered.contains(a)) chosen.push_back(a);
         }
         for (const auto &a : chosen) {
             covered.insert(a);
@@ -183,7 +183,7 @@ std::vector<std::vector<ConditionPtr>> choose_groups(
     std::vector<ConditionPtr> uncovered;
     uncovered.reserve(atoms.size());
     for (const auto &a : atoms)
-        if (covered.find(a) == covered.end()) uncovered.push_back(a);
+        if (!covered.contains(a)) uncovered.push_back(a);
     std::cout << uncovered.size() << " uncovered facts" << std::endl;
     std::sort(uncovered.begin(), uncovered.end(), atom_less);
     for (const auto &a : uncovered) result.push_back({a});
