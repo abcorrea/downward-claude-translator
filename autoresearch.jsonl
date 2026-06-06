@@ -1,4 +1,5 @@
 {"type":"config","name":"translator-speedup","metricName":"total_cpu","metricUnit":"s","bestDirection":"lower"}
+{"run": 1, "commit": "71fa76e", "metric": 322.967, "samples": [326.403, 320.719, 322.967], "confidence": null, "status": "keep", "description": "baseline", "timestamp": 1780700150, "segment": 0}
 {"run":2,"commit":"89a237c","metric":289.559,"samples":[289.559,290.927,287.425],"confidence":12.869,"status":"keep","description":"AtomView allocation-free fact probing in instantiate","timestamp":1780702441,"segment":0}
 {"run":3,"commit":"89a237c","metric":286.970,"samples":[292.652,285.979,284.902,282.587,287.961,298.075],"confidence":0.844,"status":"discard","description":"raw-id packed join keys in compute_model key_of (within noise vs SSO string key)","timestamp":1780705305,"segment":0}
 {"run":4,"commit":"31d9235","metric":280.822,"samples":[285.803,280.822,278.839],"confidence":3.517,"status":"keep","description":"reuse scratch buffer for literal arg resolution in instantiate","timestamp":1780707223,"segment":0}
