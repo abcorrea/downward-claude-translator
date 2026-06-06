@@ -1,0 +1,71 @@
+# Autopolish: improve C++ translator code quality
+
+## Objective
+Make `src/translate-cpp/` **more readable, more idiomatic, and more modern
+(C++20)** without changing behaviour and without significantly slowing it
+down. Quality is the goal; runtime is only a guard.
+
+## Acceptance (a change is KEPT iff all hold)
+1. **Genuine quality win** (agent judgment): improves readability, uses a
+   clearer/safer C++ idiom, or adopts a C++20 feature that makes the code
+   simpler. Pure churn or "different but not better" is rejected.
+2. **Behaviour preserved**: `./autoresearch.checks.sh` passes — every task's
+   output is byte-identical (or, failing that, canonically equivalent) to its
+   reference. A mismatch reverts like a crash.
+3. **No significant slowdown**: `./autopolish.sh` (heavy-task subset, 3 reps)
+   median is not more than ~5% slower than the autopolish baseline, judged
+   with scripts/decide.py. Small regressions/improvements are fine.
+
+## How to run
+- Quality changes: edit `src/translate-cpp/**`.
+- Runtime guard: `./autopolish.sh` -> `METRIC total_cpu=<sec>` x3 (subset).
+- Correctness: `./autoresearch.checks.sh` (all 18 tasks, byte/canonical).
+- Decide (guard): `python3 ~/.claude/skills/autoresearch/scripts/decide.py
+  --best "<baseline subset samples>" --candidate "<new>" --direction lower`.
+  REJECT only if the candidate is *significantly slower*: improvement_rel
+  < -0.05 (>5% slower) AND confidence >= 2. Otherwise the guard passes.
+  Compare against the FIXED autopolish baseline (don't ratchet) so cumulative
+  runtime stays within ~5% of baseline.
+
+## The loop
+`pick a quality improvement -> edit -> ./autoresearch.checks.sh -> (if the
+change could affect runtime) ./autopolish.sh + guard -> keep or revert ->
+log -> repeat`. Cosmetic-only changes (renames, comments, const, formatting)
+are runtime-neutral by construction: run only the correctness check and skip
+the runtime guard.
+
+## Files in scope
+- `src/translate-cpp/**` — all translator C++ sources/headers.
+
+## Off-limits (never edit)
+- `misc/tests/run_translator_benchmark.py`, `misc/tests/benchmarks/**`,
+  `misc/tests/benchmarks/autoresearch-refs/**`, `autoresearch.sh`,
+  `autoresearch.checks.sh`, `autopolish.sh`.
+
+## Constraints
+- C++20; must build with `./build.py release --with-translate-cpp`.
+- Behaviour identical (byte/canonical to reference).
+- Don't sacrifice clarity for speed or vice versa; reject changes that are
+  uglier, and reject quality changes that are >5% slower.
+
+## State
+- Ledger: `autoresearch.jsonl`, new segment (config header `autopolish`).
+  Guard metric = total_cpu on the heavy subset (lower better, used as a guard).
+- Branch: `autopolish` (from autoresearch revision 8747edd / translator 48fb50c).
+
+## Idea backlog (C++20 / idioms / readability)
+- `x.find(k) != x.end()` / `x.count(k)` -> `x.contains(k)` (C++20). Broad,
+  runtime-neutral readability win.
+- range-based for / `<ranges>` algorithms (std::ranges::any_of/find/sort)
+  instead of manual index loops where it reads better.
+- structured bindings; `auto` where it aids readability.
+- `[[maybe_unused]]` instead of `(void)x`.
+- `std::string_view` params for read-only string args.
+- `using enum` for enum-heavy switch/visit sites.
+- `std::erase_if` (C++20) instead of remove-erase idiom.
+- replace bare `std::function` hot callbacks ONLY if it also reads better
+  (and guard runtime).
+
+## What's Been Tried
+- (baseline pending)
+-

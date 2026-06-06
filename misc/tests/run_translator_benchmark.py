@@ -30,10 +30,16 @@ DEFAULT_BENCH = DIR / "benchmarks" / "autoresearch"
 DEFAULT_BIN = REPO / "builds" / "release" / "bin" / "translate-cpp"
 
 
-def discover_tasks(bench_dir):
-    """Each task dir holds domain.pddl + exactly one other *.pddl (the problem)."""
+def discover_tasks(bench_dir, only=None):
+    """Each task dir holds domain.pddl + exactly one other *.pddl (the problem).
+
+    If *only* is given (a set of task-dir names), restrict to those tasks --
+    used for a fast runtime guard on a representative heavy-task subset.
+    """
     tasks = []
     for sub in sorted(p for p in bench_dir.iterdir() if p.is_dir()):
+        if only is not None and sub.name not in only:
+            continue
         domain = sub / "domain.pddl"
         problems = [p for p in sorted(sub.glob("*.pddl")) if p.name != "domain.pddl"]
         if not domain.exists() or len(problems) != 1:
@@ -41,6 +47,10 @@ def discover_tasks(bench_dir):
         tasks.append((sub.name, domain, problems[0]))
     if not tasks:
         sys.exit(f"no tasks found under {bench_dir}")
+    if only is not None:
+        missing = only - {name for name, _, _ in tasks}
+        if missing:
+            sys.exit(f"requested tasks not found: {sorted(missing)}")
     return tasks
 
 
@@ -81,12 +91,16 @@ def main():
                     help="run once; save each task's output.sas as <task>.sas in DIR")
     ap.add_argument("--check", metavar="DIR",
                     help="run once; compare each output to reference <task>.sas in DIR")
+    ap.add_argument("--tasks", metavar="NAMES",
+                    help="comma-separated task-dir names to restrict to (e.g. a "
+                         "heavy-task subset for a fast runtime guard)")
     args = ap.parse_args()
 
     bin_path = Path(args.bin).resolve()
     if not bin_path.exists():
         sys.exit(f"translator binary not found: {bin_path}")
-    tasks = discover_tasks(Path(args.bench).resolve())
+    only = set(args.tasks.split(",")) if args.tasks else None
+    tasks = discover_tasks(Path(args.bench).resolve(), only=only)
 
     if args.save_sas:
         out = Path(args.save_sas).resolve()
