@@ -139,6 +139,59 @@ SUITE_OPTIMAL_STRIPS = [
 # fmt: on
 
 
+# Full HTG (hard-to-ground) flattened suite: 40 domains under
+# $HTG_BENCHMARKS_FLATTENED (same list as 02-htg-search.py).
+# fmt: off
+SUITE_HTG = [
+    "blocksworld-large-simple",
+    "childsnack-contents-parsize1-cham3", "childsnack-contents-parsize1-cham5",
+    "childsnack-contents-parsize1-cham7", "childsnack-contents-parsize2-cham3",
+    "childsnack-contents-parsize2-cham5", "childsnack-contents-parsize2-cham7",
+    "childsnack-contents-parsize3-cham3", "childsnack-contents-parsize3-cham5",
+    "childsnack-contents-parsize3-cham7", "childsnack-contents-parsize4-cham3",
+    "childsnack-contents-parsize4-cham5", "childsnack-contents-parsize4-cham7",
+    "genome-edit-distance", "genome-edit-distance-positional",
+    "genome-edit-distance-split", "logistics-large-simple",
+    "organic-synthesis-MIT", "organic-synthesis-alkene",
+    "organic-synthesis-original", "pipesworld-tankage-nosplit",
+    "rovers-large-simple",
+    "visitall-multidimensional-3-dim-visitall-CLOSE-g1",
+    "visitall-multidimensional-3-dim-visitall-CLOSE-g2",
+    "visitall-multidimensional-3-dim-visitall-CLOSE-g3",
+    "visitall-multidimensional-3-dim-visitall-FAR-g1",
+    "visitall-multidimensional-3-dim-visitall-FAR-g2",
+    "visitall-multidimensional-3-dim-visitall-FAR-g3",
+    "visitall-multidimensional-4-dim-visitall-CLOSE-g1",
+    "visitall-multidimensional-4-dim-visitall-CLOSE-g2",
+    "visitall-multidimensional-4-dim-visitall-CLOSE-g3",
+    "visitall-multidimensional-4-dim-visitall-FAR-g1",
+    "visitall-multidimensional-4-dim-visitall-FAR-g2",
+    "visitall-multidimensional-4-dim-visitall-FAR-g3",
+    "visitall-multidimensional-5-dim-visitall-CLOSE-g1",
+    "visitall-multidimensional-5-dim-visitall-CLOSE-g2",
+    "visitall-multidimensional-5-dim-visitall-CLOSE-g3",
+    "visitall-multidimensional-5-dim-visitall-FAR-g1",
+    "visitall-multidimensional-5-dim-visitall-FAR-g2",
+    "visitall-multidimensional-5-dim-visitall-FAR-g3",
+]
+# fmt: on
+
+
+# Kept C++ translator revisions from the autoresearch speedup loop
+# (oldest -> newest; baseline first). Each (nick, git-sha) is built and
+# measured so the per-revision translator speedup is visible across the
+# full suites. See autoresearch.jsonl / autoresearch.md at the repo root.
+REVISIONS = [
+    ("baseline", "71fa76e"),       # C++ translator before the speedup loop
+    ("atomview-probe", "89a237c"),  # allocation-free fact probing in instantiate
+    ("scratch-args", "31d9235"),    # reuse scratch buffer for literal-arg resolution
+    ("skip-eff-copy", "2b03d60"),   # skip per-effect var_mapping copy (no params)
+    ("key-buffer", "e588ed8"),      # reuse key buffer for translate-phase lookups
+    ("varmap-reuse", "ebae3a6"),    # reuse var_mapping across ground actions
+    ("uf-dedup", "48fb50c"),        # drop redundant double-hash in UnionFind::find
+]
+
+
 # Useful aggregator for Fast-Downward-style reports.
 EVALUATIONS_PER_TIME = Attribute(
     "evaluations_per_time", min_wins=False, functions=geometric_mean, digits=1
