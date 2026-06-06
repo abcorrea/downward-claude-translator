@@ -67,5 +67,20 @@ the runtime guard.
   (and guard runtime).
 
 ## What's Been Tried
-- (baseline pending)
+- Baseline (segment 1): subset guard median 166.6s (translator code 48fb50c).
+- KEEP c2e3f68: C++20 .contains() for .count() membership checks (11 files;
+  not timer chrono). Byte-identical; guard neutral.
+- KEEP 71cc14c: C++20 .contains() for find()!=end()/==end() membership
+  (iterator-binding find()s left alone). Byte-identical; guard neutral.
+- KEEP 2126410: std::erase_if + [[maybe_unused]] (C++20). Byte-identical.
+- KEEP 15b29ff: 43x std::ranges algorithms (sort/find/any_of/...). Byte-
+  identical; guard neutral. NOTE: std::ranges::sort needs std::totally_ordered
+  elements; vector<Atom>/vector<InvariantPart> define only operator< so those
+  5 sorts stay std::sort.
+- INSIGHT: the C++20 .contains()/ranges idioms are byte-identical and guard-
+  neutral (libstdc++ ranges::sort == std::sort introsort, same tie-breaking).
+## Backlog next
+- range-based for / index-loop cleanups (only where index is pure subscript).
+- structured bindings; using enum (Condition::Kind switches); std::string_view
+  params for read-only string args; std::span where it reads better.
 -
