@@ -97,4 +97,17 @@ Remaining candidates are sparse/judgment-heavy and were deliberately NOT done:
 - using enum / std::string_view params: subjective / lifetime-risky; skipped.
 NEXT (if resumed): selective per-loop range-for on confirmed pure-subscript
 sites; or deeper structural readability (extract helpers) with guard.
+
+## ALGORITHMIC / DATA-STRUCTURE wins (user request: reduce asymptotic cost)
+- KEEP e6c3f03: axiom-dominance subset test via std::ranges::includes on the
+  already-sorted conditions -> O(|ci|+|cj|) per pair instead of nested
+  O(|ci|*|cj|) scan. Idiomatic + asymptotic; helps axiom-heavy domains (psr).
+- KEEP 1c949de: allocation-free Atom::operator< fast path (compare interned
+  names by reference for symbol args) -- removes a heap alloc per element in
+  the ground-atom sort comparator (compute_model fact_atoms sort).
+- Combined: subset guard 166.6s -> 147.1s (-11.7%, conf 19.6x), byte-identical.
+- Considered but REJECTED: split.cc greedy-join min-cost is O(k^3) but k
+  (rule body size) is tiny and a priority-queue would change the tie-break
+  order (-> different aux predicate names -> different output). invariant_finder
+  param-inequality is O(t*p^2) either way (not a real reduction).
 -
