@@ -172,56 +172,38 @@ struct AxiomCluster {
 std::vector<std::shared_ptr<PropositionalAxiom>> compute_simplified_axioms(
     std::vector<std::shared_ptr<PropositionalAxiom>> axioms) {
     if (axioms.empty()) return axioms;
-    // Deduplicate condition entries within each axiom.
+    // Strict-weak order on condition literals by (predicate, args, negated).
+    auto lit_less = [](const ConditionPtr &x, const ConditionPtr &y) {
+        const auto &lx = static_cast<const Literal &>(*x);
+        const auto &ly = static_cast<const Literal &>(*y);
+        if (lx.predicate != ly.predicate) return lx.predicate < ly.predicate;
+        if (lx.args != ly.args) return lx.args < ly.args;
+        return lx.negated() < ly.negated();
+    };
+    // Deduplicate condition entries within each axiom; leaves each
+    // axiom's condition sorted by `lit_less`.
     for (auto &ax : axioms) {
         std::vector<ConditionPtr> uniq = ax->condition;
-        std::ranges::sort(uniq,
-                  [](const ConditionPtr &x, const ConditionPtr &y) {
-                      const auto &lx = static_cast<const Literal &>(*x);
-                      const auto &ly = static_cast<const Literal &>(*y);
-                      if (lx.predicate != ly.predicate)
-                          return lx.predicate < ly.predicate;
-                      if (lx.args != ly.args) return lx.args < ly.args;
-                      return lx.negated() < ly.negated();
-                  });
-        uniq.erase(std::unique(uniq.begin(), uniq.end(),
-                               [](const ConditionPtr &x,
-                                  const ConditionPtr &y) {
-                                   const auto &lx =
-                                       static_cast<const Literal &>(*x);
-                                   const auto &ly =
-                                       static_cast<const Literal &>(*y);
-                                   return lx.predicate == ly.predicate &&
-                                          lx.args == ly.args &&
-                                          lx.negated() == ly.negated();
-                               }),
+        std::ranges::sort(uniq, lit_less);
+        uniq.erase(std::ranges::begin(std::ranges::unique(
+                       uniq, [&](const ConditionPtr &x, const ConditionPtr &y) {
+                           return !lit_less(x, y) && !lit_less(y, x);
+                       })),
                    uniq.end());
         ax->condition = std::move(uniq);
     }
-    // Remove dominated axioms (naive O(n^2)).
+    // Remove dominated axioms: i dominates j iff i's condition is a subset
+    // of j's. Both conditions are sorted by `lit_less`, so the subset test
+    // is a single linear merge via std::ranges::includes (O(|ci|+|cj|))
+    // rather than a nested scan (O(|ci|*|cj|)).
     std::vector<bool> skip(axioms.size(), false);
     for (std::size_t i = 0; i < axioms.size(); ++i) {
         for (std::size_t j = 0; j < axioms.size(); ++j) {
             if (i == j || skip[j]) continue;
-            // i dominates j iff i's condition is a subset of j's condition.
             const auto &ci = axioms[i]->condition;
             const auto &cj = axioms[j]->condition;
             if (ci.size() > cj.size()) continue;
-            bool subset = true;
-            for (const auto &lit_i : ci) {
-                bool found = false;
-                const auto &li = static_cast<const Literal &>(*lit_i);
-                for (const auto &lit_j : cj) {
-                    const auto &lj = static_cast<const Literal &>(*lit_j);
-                    if (li.predicate == lj.predicate &&
-                        li.args == lj.args &&
-                        li.negated() == lj.negated()) {
-                        found = true; break;
-                    }
-                }
-                if (!found) { subset = false; break; }
-            }
-            if (subset) skip[j] = true;
+            if (std::ranges::includes(cj, ci, lit_less)) skip[j] = true;
         }
     }
     std::vector<std::shared_ptr<PropositionalAxiom>> out;
