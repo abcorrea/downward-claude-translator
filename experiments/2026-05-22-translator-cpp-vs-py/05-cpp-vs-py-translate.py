@@ -114,11 +114,20 @@ add_report(
     attributes=ATTRIBUTES,
     algorithm_pairs=[("py", "cpp")],
 )
+# Scatter plots only make sense for measurable times: the translator
+# reports 0.00 s for sub-5 ms tasks, and a log/relative plot needs values
+# > 0. Keep runs whose translator_time_done is present and positive.
+def positive_time(run):
+    t = run.get("translator_time_done")
+    return t is not None and t > 0
+
+
 # Relative scatter plot of translation time: x = py time, y = cpp/py ratio.
 exp.add_report(
     ScatterPlotReport(
         attributes=["translator_time_done"],
         filter_algorithm=["py", "cpp"],
+        filter=positive_time,
         relative=True,
         format="png",
     ),
@@ -130,6 +139,7 @@ exp.add_report(
     ScatterPlotReport(
         attributes=["translator_time_done"],
         filter_algorithm=["py", "cpp"],
+        filter=positive_time,
         format="png",
     ),
     outfile=os.path.join(exp.eval_dir, "scatter-translator-time.png"),
