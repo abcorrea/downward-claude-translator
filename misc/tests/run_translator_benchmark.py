@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-"""Benchmark the C++ translator directly (no driver) on the autoresearch suite.
+"""Benchmark the C++ translator directly (no driver) on the benchmark suite.
 
 Runs `translate-cpp DOMAIN.pddl PROBLEM.pddl` once per task, measuring the
 translator's own CPU time (user+system) via os.wait4 rusage -- this excludes
@@ -26,14 +26,16 @@ from pathlib import Path
 
 DIR = Path(__file__).resolve().parent
 REPO = DIR.parents[1]
-DEFAULT_BENCH = DIR / "benchmarks" / "autoresearch"
+DEFAULT_BENCH = DIR / "benchmarks"
 DEFAULT_BIN = REPO / "builds" / "release" / "bin" / "translate-cpp"
 
 
 def discover_tasks(bench_dir, only=None):
-    """Each task dir holds domain.pddl + exactly one other *.pddl (the problem).
+    """Each task dir holds domain.pddl and one or more problem *.pddl files.
 
-    If *only* is given (a set of task-dir names), restrict to those tasks --
+    A dir with a single problem yields one task named after the dir; a dir with
+    several problems yields one task per problem named "<dir>-<problem-stem>".
+    If *only* is given (a set of task-dir names), restrict to those dirs --
     used for a fast runtime guard on a representative heavy-task subset.
     """
     tasks = []
@@ -42,9 +44,11 @@ def discover_tasks(bench_dir, only=None):
             continue
         domain = sub / "domain.pddl"
         problems = [p for p in sorted(sub.glob("*.pddl")) if p.name != "domain.pddl"]
-        if not domain.exists() or len(problems) != 1:
-            sys.exit(f"bad task dir {sub}: need domain.pddl + 1 problem .pddl")
-        tasks.append((sub.name, domain, problems[0]))
+        if not domain.exists() or not problems:
+            sys.exit(f"bad task dir {sub}: need domain.pddl + 1+ problem .pddl")
+        for prob in problems:
+            name = sub.name if len(problems) == 1 else f"{sub.name}-{prob.stem}"
+            tasks.append((name, domain, prob))
     if not tasks:
         sys.exit(f"no tasks found under {bench_dir}")
     if only is not None:

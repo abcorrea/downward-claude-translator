@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REFS=misc/tests/benchmarks/autoresearch-refs
+REFS=misc/tests/benchmarks-refs
 [ -d "$REFS" ] || { echo "reference dir $REFS missing; regenerate with --save-sas" >&2; exit 1; }
 
 exec python3 misc/tests/run_translator_benchmark.py --check "$REFS"
