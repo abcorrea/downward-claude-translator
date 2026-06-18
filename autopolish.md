@@ -167,8 +167,50 @@ tree is clean.) TWO DISTINCT divergence mechanisms:
    => separate fact-ordering / mutex-group-emission divergence in fact_groups,
    independent of invariant synthesis.
 
-NEXT: audit Invariant::check_balance in invariants.cc vs invariants.py for the
-counter/conditional-effect case (settlers); audit fact_groups variable ordering
-+ mutex-group emission (freecell). Note: forcing cpp to match py would make cpp
-LESS complete (drop sound mutexes) — so "equivalence with the Python reference"
-trades a more-compact valid encoding for byte-identity; worth a decision.
+Decision (user): MATCH PYTHON EXACTLY (byte-identity is the goal even though
+cpp's extra mutexes are sound). OK to add sorting in Python if needed.
+
+## FIXES APPLIED (both make cpp match the Python reference; no Python changes)
+FIX 1 (settlers / check_balance) — invariant_finder.cc BalanceChecker ctor.
+  Root cause: the HEAVY action (used by operator_too_heavy) duplicates universal
+  (forall) effects, but cpp duplicated them WITHOUT renaming the quantified
+  variables. Python builds the heavy action via the Action constructor, which
+  calls uniquify_variables(), giving the two copies DISJOINT bound-var names.
+  With identical names, operator_too_heavy compared an add effect against an
+  identically-named copy of itself -> the inequality (?rpnew != ?rpnew) is
+  unsatisfiable -> never "too heavy" -> cpp wrongly confirmed counter invariants
+  (available-*, housing, ...) that Python rejects.
+  Fix: call heavy.uniquify_variables() after building the duplicated effects
+  (only when any universal effect exists, matching Python). One line + comment.
+  Result: settlers-sat18-adl p01 now BYTE-IDENTICAL (cpp 1107 vars == py 1107).
+
+FIX 2 (freecell / choose_groups) — fact_groups.cc.
+  Root cause: get_groups + instantiate_groups + sort_groups were already
+  identical (lifted groups 42==42, instantiated+sorted groups 42==42). The
+  divergence was entirely in choose_groups: cpp used an index-scan greedy cover
+  (pick current-max remaining, last-index tie-break) which does NOT reproduce
+  Python's GroupCoverQueue. In GCQ the pop order is LIFO within a size bucket
+  and a shrunk group is lazily re-bucketed to the BACK of its new size bucket
+  (so it is reconsidered before originally-smaller groups). On freecell each
+  card admits equal-size "bottomcol ..." and "clear ..." candidate groups; the
+  tie-break decided which won, cascading into a different partition (cpp picked
+  clear-variants, py bottomcol-variants) -> different variable order AND
+  different surviving mutex groups (24 vs 16) downstream.
+  Fix: replaced choose_groups' index-scan with the faithful GroupCoverQueue
+  pop order (largest-first, LIFO within a size bucket, shrunk groups lazily
+  re-bucketed to the back of their new bucket). Kept the fast int-counter
+  shrinking (remaining[] + atom->groups index) instead of a hash-set per group,
+  so it stays O(sum of group sizes) -- same cost class as the prior code.
+  Result: freecell p01 now BYTE-IDENTICAL (mutex 24==24).
+
+Validation:
+- ./autoresearch.checks.sh (18-task suite): 18/18 byte-identical. The 2 tasks
+  that diverged before the fixes (settlers-sat18-adl p20, genome-edit-distance-
+  positional d-9-8) are now BYTE-IDENTICAL to the Python translator; their
+  (gitignored) autoresearch-refs were stale snapshots of the old divergent cpp
+  output and were regenerated to the now-Python-correct output.
+- Runtime guard (heavy subset, clean, same machine state): HEAD ~164.9s vs
+  fixed code ~165.2s -> no regression (+0.2%, within noise).
+- Both root-cause probes (settlers p01, freecell p01) BYTE-IDENTICAL to Python.
+All debug instrumentation reverted; git diff = fact_groups.cc +
+invariant_finder.cc (+ this file). No Python source changes were needed.
