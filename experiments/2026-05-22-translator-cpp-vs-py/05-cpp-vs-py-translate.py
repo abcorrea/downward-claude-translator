@@ -115,11 +115,16 @@ add_report(
     algorithm_pairs=[("py", "cpp")],
 )
 # Scatter plots only make sense for measurable times: the translator
-# reports 0.00 s for sub-5 ms tasks, and a log/relative plot needs values
-# > 0. Keep runs whose translator_time_done is present and positive.
+# reports 0.00 s for sub-5 ms tasks, a log/relative plot needs values > 0,
+# and the relative plot needs BOTH translators to have a value for a task.
+# Keep every run (so each task still has its two runs) but null out
+# non-positive times, which makes the report skip those (incomplete) pairs
+# instead of erroring on a half-filtered task.
 def positive_time(run):
     t = run.get("translator_time_done")
-    return t is not None and t > 0
+    if t is None or t <= 0:
+        run["translator_time_done"] = None
+    return run
 
 
 # Relative scatter plot of translation time: x = py time, y = cpp/py ratio.
