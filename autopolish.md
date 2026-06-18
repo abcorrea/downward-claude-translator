@@ -214,3 +214,43 @@ Validation:
 - Both root-cause probes (settlers p01, freecell p01) BYTE-IDENTICAL to Python.
 All debug instrumentation reverted; git diff = fact_groups.cc +
 invariant_finder.cc (+ this file). No Python source changes were needed.
+Committed as 902cfd291.
+
+## BROAD RE-CHECK over the 160 previously-divergent tasks (after the 2 fixes)
+cpp-vs-py byte comparison (default cpython-rng on), per /tmp/divergent_tasks.txt:
+  126 byte-identical, 0 canonical-only, 35 DIFFER, 0 errors.
+Fully fixed by the 2 commits: freecell (77/77), settlers-sat18-adl (20/20),
+thoughtful-sat14-strips (20/20), trucks-strips (9/9).
+STILL DIVERGENT (separate, not-yet-diagnosed root causes): assembly (30/30),
+psr-middle (3/3), psr-large (2/2). Both are ADL domains with axioms /
+conditional effects; likely a further invariant-synthesis or
+axiom/condition-handling divergence distinct from the two fixed above.
+NEXT (if pursued): dump+diff confirmed invariants and fact groups on an
+assembly and a psr task (same method as settlers/freecell) to localize.
+
+## FIX 3 (assembly et al. / normalize dangling Axiom* — memory-safety bug)
+normalize.cc remove_universal_recurse cached `Axiom*` in `memo` across
+task.add_axiom() calls. task.axioms is a std::vector<Axiom>, so add_axiom can
+reallocate and dangle every cached Axiom* (the code comment even admitted it).
+A later memo hit dereferenced a dangling pointer and read a garbage axiom name,
+so the head atom for a universal→axiom condition came out as e.g.
+`NegatedAtom ?part(?whole)` (a *parameter name* used as a predicate). When
+instantiated, `?part(?whole)` -> `connector(doodad)`, not a real fluent, so the
+negated precondition was silently dropped -> the operator lost a prevail
+condition (e.g. `(remove connector doodad)` was missing `¬new-axiom@0(doodad)`).
+Fix: cache the axiom *name* (std::string) in `memo` instead of `Axiom*`, read
+right after add_axiom. assembly lifted `remove` now shows `new-axiom@0(?whole)`
+(matches py) and the operator regains `¬new-axiom@0(doodad)`.
+This is a genuine use-after-realloc bug affecting any task whose normalization
+hits the memo after an axiom-vector reallocation; worth landing on its own.
+
+## REMAINING assembly/psr divergences (still open after FIX 3)
+- assembly: now only the AXIOM EMISSION ORDER differs. The 81 begin_rule blocks
+  are identical as a SET (0 differ); the order differs. Order comes from
+  axiom_rules get_axioms(clusters) -> get_strongly_connected_components(deps)
+  cluster order + within-cluster variable order. cpp's SCC/cluster ordering
+  must be aligned with Python's to match. (Same-set, pure ordering.)
+- psr-middle/psr-large: DIFFERENT issue — cpp emits MORE axioms than py
+  (psr-middle 97 vs 92; psr-large 7901 vs 7850). A content/axiom-count
+  difference (axiom generation or simplification: compute_simplified_axioms /
+  negative-axiom creation), not just ordering. Needs its own diagnosis.
