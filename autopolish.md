@@ -130,5 +130,45 @@ grouping):
     SAS variables). Different encoding, not missing operators.
 => The CPython RNG module is correct but output-neutral here; it does not close
 the cpp-vs-py gap. The real gap is a deterministic difference in the invariant
-finder / fact_groups between the two implementations. Next: dump & diff the
-confirmed invariants (cpp vs py) on settlers/freecell to locate it.
+finder / fact_groups between the two implementations.
+
+## INVARIANT DIFF (settlers/freecell) — root cause localized
+Added temporary env-gated dumps (DUMP_INVARIANTS) to both translators' get_groups
+to print the confirmed *lifted* invariants, plus DUMP_REACH for the inequality
+preconditions; ran on settlers-sat18-adl p01 and freecell p01. (Python prints
+omitted_pos=None where C++ prints -1; same thing. ALL instrumentation reverted;
+tree is clean.) TWO DISTINCT divergence mechanisms:
+
+1) settlers p01 — DIFFERENT INVARIANT SETS (check_balance divergence).
+   py confirms 9; cpp confirms 17; py's 9 are a strict SUBSET of cpp's. cpp's 8
+   extras are mostly single-predicate counter invariants: available-{coal,iron,
+   ore,stone,timber,wood}(store,COUNTED), housing(...), {potential; space-in}.
+   These are GENUINE invariants (level/counter actions del old level + add new
+   for the SAME store => at-most-one-level-per-store). => cpp is MORE COMPLETE,
+   not buggy. Collapses ~977 facts into multi-valued vars (cpp 193 vs py 1107;
+   same 425 ops).
+   - SOUNDNESS VERIFIED: lama-first on cpp's 193-var encoding solves p01 (69
+     steps, cost 535) and VAL reports "Plan valid" against the original PDDL.
+     So the extra mutexes are sound here (cpp = a valid, more compact encoding).
+   - 6 of 8 extras (available-*) are ENABLED BY REACHABILITY (vanish under
+     NO_REACHABLE). BUT inequality preconditions are IDENTICAL py vs cpp
+     (DUMP_REACH: load-coal/unload-coal both get inequal (0,1), 20 reach tuples
+     each). Same candidates + same inequalities, yet py rejects / cpp confirms
+     => ROOT CAUSE IS IN check_balance (src/translate-cpp/invariants/
+     invariants.cc: operator_unbalanced / add_effect_unbalanced / balances /
+     refine_candidate / possible_matches), NOT RNG and NOT reachability. Likely
+     hinges on reasoning about functional static predicates (DIFF-COAL functional
+     => unique rpnew => add balances del).
+
+2) freecell p01 — IDENTICAL INVARIANT SET (7==7), identical var count (22==22),
+   identical 504 ops, but output still byte-differs: binary-variable / fact
+   ORDERING differs (py emits home(spade0) before home(diamond0); cpp emits
+   alphabetical diamond0 first) AND mutex_group count differs (py 24 vs cpp 16).
+   => separate fact-ordering / mutex-group-emission divergence in fact_groups,
+   independent of invariant synthesis.
+
+NEXT: audit Invariant::check_balance in invariants.cc vs invariants.py for the
+counter/conditional-effect case (settlers); audit fact_groups variable ordering
++ mutex-group emission (freecell). Note: forcing cpp to match py would make cpp
+LESS complete (drop sound mutexes) — so "equivalence with the Python reference"
+trades a more-compact valid encoding for byte-identity; worth a decision.
