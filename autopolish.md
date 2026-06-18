@@ -111,3 +111,24 @@ sites; or deeper structural readability (extract helpers) with guard.
   order (-> different aux predicate names -> different output). invariant_finder
   param-inequality is O(t*p^2) either way (not a real reduction).
 -
+
+## CPython-RNG experiment outcome (IMPORTANT — hypothesis disproven)
+Added utils/cpython_random.h (bit-exact CPython random.Random, validated) +
+--no-cpython-rng (default on). Ran py-vs-cpp byte comparison on the 161
+"divergent" tasks (those whose grid stats differed):
+  - 160/161 still DIFFER byte-for-byte with the CPython RNG on; only 1 matched.
+  - cpp(--cpython-rng) == cpp(--no-cpython-rng) on every divergent task tested
+    (freecell, settlers, ...) => the balance-checker RNG does NOT affect the
+    output on these tasks. The divergence is DETERMINISTIC, not RNG-driven.
+  - The earlier "H2-RNG mutex nondeterminism" attribution (from the README /
+    experiment nicknames) is WRONG for these tasks.
+Nature of the real divergence (deterministic, in invariant synthesis / fact
+grouping):
+  - freecell p01: similar size, different fact ORDER within variables.
+  - settlers p01: cpp 193 variables vs py 1107 variables, SAME 425 operators
+    => cpp's invariant synthesis finds much larger mutex groups (far fewer
+    SAS variables). Different encoding, not missing operators.
+=> The CPython RNG module is correct but output-neutral here; it does not close
+the cpp-vs-py gap. The real gap is a deterministic difference in the invariant
+finder / fact_groups between the two implementations. Next: dump & diff the
+confirmed invariants (cpp vs py) on settlers/freecell to locate it.
