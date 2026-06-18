@@ -192,12 +192,30 @@ std::vector<std::shared_ptr<PropositionalAxiom>> compute_simplified_axioms(
                    uniq.end());
         ax->condition = std::move(uniq);
     }
+    std::vector<bool> skip(axioms.size(), false);
+    // Drop axioms whose (positive) effect atom occurs in their own condition:
+    // such a rule can only fire when its head already holds, so it is
+    // redundant. Matches Python's `if axiom.effect in axiom.condition` in
+    // compute_simplified_axioms. These are also excluded as dominators below
+    // (Python never adds them to axioms_by_literal).
+    for (std::size_t i = 0; i < axioms.size(); ++i) {
+        const auto &eff = *axioms[i]->effect;
+        for (const auto &c : axioms[i]->condition) {
+            const auto &l = static_cast<const Literal &>(*c);
+            if (!l.negated() && l.predicate == eff.predicate &&
+                l.args == eff.args) {
+                skip[i] = true;
+                break;
+            }
+        }
+    }
     // Remove dominated axioms: i dominates j iff i's condition is a subset
     // of j's. Both conditions are sorted by `lit_less`, so the subset test
     // is a single linear merge via std::ranges::includes (O(|ci|+|cj|))
-    // rather than a nested scan (O(|ci|*|cj|)).
-    std::vector<bool> skip(axioms.size(), false);
+    // rather than a nested scan (O(|ci|*|cj|)). A skipped axiom never acts as
+    // a dominator (matches Python skipping ids in axioms_to_skip).
     for (std::size_t i = 0; i < axioms.size(); ++i) {
+        if (skip[i]) continue;
         for (std::size_t j = 0; j < axioms.size(); ++j) {
             if (i == j || skip[j]) continue;
             const auto &ci = axioms[i]->condition;

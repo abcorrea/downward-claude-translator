@@ -189,6 +189,11 @@ void SASTask::output(std::ostream &os) const {
     for (const auto &op : operators) write_operator(w, op);
 
     auto axs = axioms;
+    // Canonicalize within-rule condition order (by final variable number)
+    // before ordering the rules, so both the rule sort key and the emitted
+    // conditions use the same order -- matching the Python translator, whose
+    // final axiom sort also operates on per-rule-sorted conditions.
+    for (auto &a : axs) std::ranges::sort(a.condition);
     std::ranges::sort(axs,
               [](const SASAxiom &a, const SASAxiom &b) {
                   if (a.condition != b.condition) return a.condition < b.condition;

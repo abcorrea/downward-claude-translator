@@ -244,13 +244,35 @@ right after add_axiom. assembly lifted `remove` now shows `new-axiom@0(?whole)`
 This is a genuine use-after-realloc bug affecting any task whose normalization
 hits the memo after an axiom-vector reallocation; worth landing on its own.
 
-## REMAINING assembly/psr divergences (still open after FIX 3)
-- assembly: now only the AXIOM EMISSION ORDER differs. The 81 begin_rule blocks
-  are identical as a SET (0 differ); the order differs. Order comes from
-  axiom_rules get_axioms(clusters) -> get_strongly_connected_components(deps)
-  cluster order + within-cluster variable order. cpp's SCC/cluster ordering
-  must be aligned with Python's to match. (Same-set, pure ordering.)
-- psr-middle/psr-large: DIFFERENT issue — cpp emits MORE axioms than py
-  (psr-middle 97 vs 92; psr-large 7901 vs 7850). A content/axiom-count
-  difference (axiom generation or simplification: compute_simplified_axioms /
-  negative-axiom creation), not just ordering. Needs its own diagnosis.
+## FIX 4 (assembly / canonical axiom emission order) — main.py + sas_task.cc
+After FIX 3 the assembly 81 axiom rules were an identical SET but in a
+different ORDER. The order is incidental (post-handle_axioms order was actually
+identical, but py's SASTask.__init__ sorts axioms by (condition, effect) using
+PRE-reorder variable numbers, while cpp's SASTask::output sorts by
+(condition, effect) using POST-reorder numbers -> same key, different index
+space -> different order). Axiom rule order is semantically irrelevant (FD
+evaluates axioms by layer to a fixpoint), so per the user we sort canonically
+at the end in BOTH translators using FINAL (post-reorder) variable numbers:
+  - main.py (end of pddl_to_sas, after variable_order): sort each axiom's
+    condition, then sort sas_task.axioms by (condition, effect).
+  - sas_task.cc SASTask::output: sort each rule's condition before the existing
+    (condition, effect) list sort so both the sort key and emitted conditions
+    use the same (post-remap-sorted) order.
+=> assembly byte-identical.
+
+## FIX 5 (psr / extra axioms) — axiom_rules.cc compute_simplified_axioms
+cpp emitted MORE axioms than py (psr-middle 97 vs 92). Root cause: cpp's
+compute_simplified_axioms was missing Python's rule (axiom_rules.py:128) that
+DROPS any axiom whose positive effect atom occurs in its own condition (such a
+rule only fires when its head already holds -> redundant), and it also let
+such axioms act as dominators. Fix: mark those axioms skipped, and skip
+dominated/skipped axioms as dominators (matching Python's axioms_to_skip /
+axioms_by_literal flow). With the FIX 4 condition sort this also resolves the
+within-rule condition order under variable reordering.
+=> psr-middle and psr-large byte-identical.
+
+## STATUS: all 7 previously-divergent domains fixed
+freecell, settlers, thoughtful, trucks (commits 902cfd291) + assembly, psr
+(FIX 4/5 here). Broad recheck over the 160 tasks pending; 18-task gate refs
+need regen (py axiom order changed). No Python *semantic* change — only a
+deterministic final axiom sort (FD axiom order is irrelevant by layer/fixpoint).
